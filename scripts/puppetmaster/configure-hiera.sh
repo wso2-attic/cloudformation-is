@@ -31,6 +31,11 @@ readonly DB_ENGINE=${10}
 readonly DB_USERNAME=${12}
 readonly DB_PASSWORD=${14}
 
+readonly ACCESS_ID=${16}
+readonly ACCESS_SECRET=${18}
+readonly SECURITY_GROUP=${20}
+readonly REGION=${22}
+
 # databases
 readonly UM_DB="WSO2_USER_DB"
 readonly GOV_REG_DB="WSO2_GOV_REG_DB"
@@ -73,17 +78,46 @@ function get_jdbc_url_prefix() {
     echo $url_prefix
 }
 
-function configure() {
+function escape_special_characters() {
+
+    local escaped="$1"
+
+    # escape all backslashes
+    escaped="${escaped//\\/\\\\}"
+    # escape slashes
+    escaped="${escaped//\//\\/}"
+    # escape asterisks
+    escaped="${escaped//\*/\\*}"
+    # escape full stops
+    escaped="${escaped//./\\.}"
+    # escape [ and ]
+    escaped="${escaped//\[/\\[}"
+    escaped="${escaped//\[/\\]}"
+    # escape ^ and $
+    escaped="${escaped//^/\\^}"
+    escaped="${escaped//\$/\\\$}"
+    # remove newlines
+    escaped="${escaped//[$'\n']/}"
+
+    echo $escaped
+}
+
+function configure_hostname_configs() {
+
+    echo ">> Configuring hostname related configurations ..."
+    sed -i 's/^\(wso2::hostname:[[:space:]]*\).*$/\1'${IS_HOST}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\(wso2::mgt_hostname:[[:space:]]*\).*$/\1'${IS_HOST}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*sso_service_url:[[:space:]]*\).*$/\1https:\/\/'${IS_HOST}':443\/samlsso/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*consumer_service_url:[[:space:]]*\).*$/\1https:\/\/'${IS_HOST}':443\/acs/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+}
+
+function configure_datasource_configs() {
 
     local db_driver_class=$(get_database_driver_class)
     local db_url_prefix=$(get_jdbc_url_prefix)
     local db_driver_binary="$(find downloads/jdbc/ -type f -name *.jar -printf "%f\n")"
 
-    echo ">> Configuring /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml"
-    sed -i 's/^\(wso2::hostname:[[:space:]]*\).*$/\1'${IS_HOST}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
-    sed -i 's/^\(wso2::mgt_hostname:[[:space:]]*\).*$/\1'${IS_HOST}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
-    sed -i 's/^\([[:space:]]*sso_service_url:[[:space:]]*\).*$/\1https:\/\/'${IS_HOST}':443\/samlsso/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
-    sed -i 's/^\([[:space:]]*consumer_service_url:[[:space:]]*\).*$/\1https:\/\/'${IS_HOST}':443\/acs/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    echo ">> Configuring datasource related configurations ..."
     sed -i 's/^\([[:space:]]*driver_class_name:[[:space:]]*\).*$/\1'${db_driver_class}'/g' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
     sed -i 's/^\([[:space:]]*username:[[:space:]]*\).*$/\1'${DB_USERNAME}'/g' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
     sed -i 's/^\([[:space:]]*password:[[:space:]]*\).*$/\1'${DB_PASSWORD}'/g' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
@@ -94,8 +128,42 @@ function configure() {
     sed -i 's/^\([[:space:]]*url:[[:space:]]*\).*WSO2_BPS_DB.*$/\1jdbc:'${db_url_prefix}':\/\/'${DB_HOST}':'${DB_PORT}'\/'${BPS_DB}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
     sed -i 's/^\([[:space:]]*url:[[:space:]]*\).*WSO2METRICS_DB.*$/\1jdbc:'${db_url_prefix}':\/\/'${DB_HOST}':'${DB_PORT}'\/'${METRICS_DB}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
     sed -i 's/^\([[:space:]]*-.*repository\/components\/lib\/\).*$/\1'${db_driver_binary}'\"/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+}
+
+function configure_clustering_configs() {
+
+    local access_id_esc=$(escape_special_characters ${ACCESS_ID})
+    local access_secret_esc=$(escape_special_characters ${ACCESS_SECRET})
+
+    echo ">> Configuring clustering related configurations ..."
+    sed -i '/^[[:space:]]*membership_scheme: wka$/,+8 s/^/#/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i '/^.*membership_scheme: aws$/,+9 s/^#[[:space:]]//' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*access_key:[[:space:]]*\).*$/\1'${access_id_esc}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*secret_key:[[:space:]]*\).*$/\1'${access_secret_esc}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*security_group:[[:space:]]*\).*$/\1'${SECURITY_GROUP}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*host_header:[[:space:]]*.*\).*$/# \1/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*region:[[:space:]]*\).*$/\1'${REGION}'/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*tag_key:[[:space:]]*\).*$/\1name/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*tag_value:[[:space:]]*\).*$/\1is.wso2.domain/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+    sed -i 's/^\([[:space:]]*local_member_port:[[:space:]]*\).*$/\15701/' /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml
+
+    # Comment out hostheader optional parameter from template
+    sed -i 's/^\(.*name="hostHeader".*\).*$/<!--\1-->/' /etc/puppet/environments/production/modules/wso2base/templates/clustering/aws.erb
+   }
+
+function configure() {
+
+    echo ">> Configuring /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml"
+    configure_hostname_configs
+    configure_datasource_configs
+
+    if [ $PATTERN = "pattern-2" ]; then
+        configure_clustering_configs
+    fi
+
     echo ">> Completed configuring /etc/puppet/hieradata/production/wso2/wso2is/${PATTERN}/default.yaml"
 }
+
 
 configure
 
