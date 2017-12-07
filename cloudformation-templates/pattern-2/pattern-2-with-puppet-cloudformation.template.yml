@@ -19,7 +19,7 @@
 # ----------------------------------------------------------------------------
 AWSTemplateFormatVersion: 2010-09-09
 Description: >
-  WSO2 Identity Server single node deployment with puppet master agent setup
+  WSO2 Identity Server two node deployment with puppet master agent setup
 
 ##############################################################################################
 # Mappings for Ubuntu AMIs
@@ -142,7 +142,14 @@ Parameters:
       - m3.2xlarge
       - m4.large
     ConstraintDescription: must be a valid EC2 instance type
-
+  AWSAccessKeyId:
+    Type: String
+    NoEcho: true
+    Description: The AWS Access Key ID used for AWS clustering
+  AWSAccessKeySecret:
+    Type: String
+    NoEcho: true
+    Description: The AWS Access Key Secret used for internal AWS clustering
 ################################
 # Create AWS resources
 ################################
@@ -320,6 +327,10 @@ Resources:
         ToPort: 8140
         CidrIp: !GetAtt WSO2EnvVPC.CidrBlock
       - IpProtocol: tcp
+        FromPort: 5701
+        ToPort: 5701
+        CidrIp: !GetAtt WSO2EnvVPC.CidrBlock
+      - IpProtocol: tcp
         FromPort: 9763
         ToPort: 9763
         SourceSecurityGroupId: !Ref WSO2EnvLBSecurityGroup
@@ -423,7 +434,7 @@ Resources:
               ./scripts/puppetmaster/extract-artifacts.sh
               ./scripts/puppetmaster/init-rds.sh -rdshost ${WSO2EnvDBInstance.Endpoint.Address} -rdsport ${WSO2EnvDBInstance.Endpoint.Port} -rdsengine ${DBEngine} -rdsversion ${DBEngineVersion} -rdsusername ${DBUsername} -rdspassword ${DBPassword}
               ./scripts/puppetmaster/setup-puppet.sh
-              ./scripts/puppetmaster/configure-hiera.sh -pattern pattern-1 -ishost ${WSO2EnvISApplicationLoadBalancer.DNSName} -rdshost ${WSO2EnvDBInstance.Endpoint.Address} -rdsport ${WSO2EnvDBInstance.Endpoint.Port} -rdsengine ${DBEngine} -rdsusername ${DBUsername} -rdspassword ${DBPassword}
+              ./scripts/puppetmaster/configure-hiera.sh -pattern pattern-2 -ishost ${WSO2EnvISApplicationLoadBalancer.DNSName} -rdshost ${WSO2EnvDBInstance.Endpoint.Address} -rdsport ${WSO2EnvDBInstance.Endpoint.Port} -rdsengine ${DBEngine} -rdsusername ${DBUsername} -rdspassword ${DBPassword} -awsid ${AWSAccessKeyId} -awssecret ${AWSAccessKeySecret} -securitygroup ${WSO2EnvInstanceSecurityGroup.GroupId} -region ${AWS::Region}
               ./scripts/puppetmaster/copy-files.sh
               apt-get --purge remove -y git
               cat /dev/null > ~/.bash_history && history -c
@@ -437,7 +448,7 @@ Resources:
             SubnetId: !Ref WSO2EnvPrivateSubnet1
             GroupSet:
               - !Ref WSO2EnvInstanceSecurityGroup
-  WSO2EnvISInstance:
+  WSO2EnvISInstance1:
     Type: 'AWS::EC2::Instance'
     DependsOn:
       - WSO2EnvDBInstance
@@ -463,12 +474,51 @@ Resources:
             echo "scripts/puppetagent/" >> .git/info/sparse-checkout
             git pull --depth=1 origin master
             ./scripts/puppetagent/install-puppet.sh -puppetmaster ${WSO2EnvPuppetMasterInstance.PrivateIp}
-            ./scripts/puppetagent/setup-puppet.sh -pattern pattern-1
+            ./scripts/puppetagent/setup-puppet.sh -pattern pattern-2
             apt-get --purge remove -y git
             cat /dev/null > ~/.bash_history && history -c
       Tags:
         - Key: Name
-          Value: wso2-is-node
+          Value: wso2-is-node-1
+      NetworkInterfaces:
+        - DeleteOnTermination: 'true'
+          Description: Primary network interface
+          DeviceIndex: 0
+          SubnetId: !Ref WSO2EnvPrivateSubnet1
+          GroupSet:
+            - !Ref WSO2EnvInstanceSecurityGroup
+  WSO2EnvISInstance2:
+    Type: 'AWS::EC2::Instance'
+    DependsOn:
+      - WSO2EnvDBInstance
+      - WSO2EnvPuppetMasterInstance
+    Properties:
+      DisableApiTermination: 'false'
+      InstanceInitiatedShutdownBehavior: stop
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      InstanceType: !Ref WSO2ISInstanceType
+      KeyName: !Ref EC2KeyPair
+      Monitoring: 'false'
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            set -e
+            apt-get -y install git
+            mkdir workspace
+            cd workspace
+            git init
+            git remote add -f origin https://github.com/wso2/cloudformation-is
+            git config core.sparseCheckout true
+            echo "scripts/puppetagent/" >> .git/info/sparse-checkout
+            git pull --depth=1 origin master
+            ./scripts/puppetagent/install-puppet.sh -puppetmaster ${WSO2EnvPuppetMasterInstance.PrivateIp}
+            ./scripts/puppetagent/setup-puppet.sh -pattern pattern-2
+            apt-get --purge remove -y git
+            cat /dev/null > ~/.bash_history && history -c
+      Tags:
+        - Key: Name
+          Value: wso2-is-node-2
       NetworkInterfaces:
         - DeleteOnTermination: 'true'
           Description: Primary network interface
@@ -541,7 +591,9 @@ Resources:
       - Key: stickiness.enabled
         Value: 'true'
       Targets:
-      - Id: !Ref WSO2EnvISInstance
+      - Id: !Ref WSO2EnvISInstance1
+        Port: 9443
+      - Id: !Ref WSO2EnvISInstance2
         Port: 9443
       UnhealthyThresholdCount: 3
       VpcId:
@@ -578,9 +630,12 @@ Outputs:
   WSO2ISPuppetMasterPrivateIP:
         Value: !Sub '${WSO2EnvPuppetMasterInstance.PrivateIp}'
         Description: Private IP of the WSO2 Puppet Master Instance
-  WSO2ISPrivateIP:
-      Value: !Sub '${WSO2EnvISInstance.PrivateIp}'
+  WSO2IS1PrivateIP:
+      Value: !Sub '${WSO2EnvISInstance1.PrivateIp}'
       Description: Private IP of the WSO2 IS Instance
+  WSO2IS2PrivateIP:
+        Value: !Sub '${WSO2EnvISInstance2.PrivateIp}'
+        Description: Private IP of the WSO2 IS Instance
   WSO2ISHostName:
         Value: !Sub '${WSO2EnvISApplicationLoadBalancer.DNSName}'
         Description: DNS Name of the ALB fronting WSO2 IS Instance

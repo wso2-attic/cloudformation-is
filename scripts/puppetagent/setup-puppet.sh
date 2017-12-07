@@ -23,14 +23,25 @@ exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 set -e
 
-echo ">> Copy puppet scripts to /opt path"
-cp scripts/puppetagent/deployment.conf /opt/
+readonly PATTERN=$2
+
+echo ">> Copy run.sh to /opt path"
 cp scripts/puppetagent/run.sh /opt/
+
+cd /opt
+cat > deployment.conf <<EOF
+product_name=wso2is
+product_version=5.4.0
+product_profile=default
+environment=production
+use_hieradata=true
+platform=default
+pattern=${PATTERN}
+EOF
 
 sleep 300
 
 echo ">> Run puppet agent"
-cd /opt
 ./run.sh
 
 tryCount=1
