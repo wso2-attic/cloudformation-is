@@ -29,13 +29,20 @@ mkdir puppet-artifacts
 echo ">> Cloning wso2/puppet-common to puppet-artifacts"
 git clone --depth=1 https://github.com/wso2/puppet-common puppet-artifacts/puppet-common
 
+echo ">> Checking out the release tag 'v1.1.0' of cloned puppet-common"
+git --git-dir=puppet-artifacts/puppet-common/.git --work-tree=puppet-artifacts/puppet-common checkout v1.1.0
+
 echo ">> Creating puppet-artifacts/tmp directory to setup puppet artifacts"
 mkdir puppet-artifacts/tmp
 
 export PUPPET_HOME=`pwd`/puppet-artifacts/tmp
 echo ">> Set $PUPPET_HOME as temporary puppet home path"
 
-./puppet-artifacts/puppet-common/setup.sh -p is
+./puppet-artifacts/puppet-common/setup.sh -p is -t v5.4.0.1
+
+#TODO: This is a temporary fix to checkout the needed puppet-base tag.
+echo ">> Checking out the release tag 'v1.2.0' of puppet-base"
+git --git-dir=${PUPPET_HOME}/modules/wso2base/.git --work-tree=${PUPPET_HOME}/modules/wso2base checkout v1.2.0
 
 echo ">> Copy puppet-artifacts to /etc/puppet path"
 
@@ -57,4 +64,3 @@ cp -rL ./puppet-artifacts/tmp/hieradata /etc/puppet/
 
 echo ">> Copy manifests to /etc/puppet/environments/production/"
 cp -rL ./puppet-artifacts/tmp/manifests /etc/puppet/environments/production/
-
