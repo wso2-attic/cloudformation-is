@@ -4,7 +4,9 @@ This repository contains AWS CloudFormation templates for WSO2 Identity Server.
 
 ## Setup instructions
 
-1. Clone the repository 
+NOTE : The Cloud Formation templates in this release assumes that the AWS deployment has internet connectivity. It has been recorded as an [improvement](https://github.com/wso2/cloudformation-is/issues/4) to be made.
+
+1. Clone the repository
   ```
   $ git clone https://github.com/wso2/cloudformation-is.git
   ```
