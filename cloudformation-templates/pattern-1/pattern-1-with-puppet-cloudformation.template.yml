@@ -62,11 +62,11 @@ Mappings:
 Parameters:
   JDK:
     Type: String
-    Default: "JDK8"
+    Default: "ORACLE_JDK8"
     Description: Target Java version
     AllowedValues:
-      - JDK7
-      - JDK8
+      - ORACLE_JDK7
+      - ORACLE_JDK8
   DBEngine:
     Type: String
     Default: "mysql"
