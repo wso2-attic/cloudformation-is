@@ -60,6 +60,10 @@ Mappings:
 # User inputs
 #############################
 Parameters:
+  AMI:
+    Type: String
+    Default: USE_DEFAULT
+    Description: AMI of the region. Keep USE_DEFAULT to use Ubuntu AMI.
   JDK:
     Type: String
     Default: "ORACLE_JDK8"
@@ -142,6 +146,10 @@ Parameters:
       - m3.2xlarge
       - m4.large
     ConstraintDescription: must be a valid EC2 instance type
+
+# Conditions
+Conditions:
+  UseDefaultUbuntuAMI: !Equals [!Ref AMI, USE_DEFAULT]
 
 ################################
 # Create AWS resources
@@ -380,7 +388,8 @@ Resources:
     Properties:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
-      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      ImageId:
+	Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
       InstanceType: t2.micro
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
@@ -400,7 +409,8 @@ Resources:
       Properties:
         DisableApiTermination: 'false'
         InstanceInitiatedShutdownBehavior: stop
-        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+        ImageId:
+         Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
         InstanceType: t2.micro
         KeyName: !Ref EC2KeyPair
         Monitoring: 'false'
@@ -445,7 +455,8 @@ Resources:
     Properties:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
-      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      ImageId:
+       Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
       InstanceType: !Ref WSO2ISInstanceType
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
