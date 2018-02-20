@@ -60,17 +60,13 @@ Mappings:
 # User inputs
 #############################
 Parameters:
-  AMI:
-    Type: String
-    Default: USE_DEFAULT
-    Description: AMI of the region. Keep USE_DEFAULT to use Ubuntu AMI.
   JDK:
     Type: String
-    Default: "ORACLE_JDK8"
+    Default: "JDK8"
     Description: Target Java version
     AllowedValues:
-      - ORACLE_JDK7
-      - ORACLE_JDK8
+      - JDK7
+      - JDK8
   DBEngine:
     Type: String
     Default: "mysql"
@@ -154,11 +150,6 @@ Parameters:
     Type: String
     NoEcho: true
     Description: The AWS Access Key Secret used for internal AWS clustering
-
-# Conditions
-Conditions:
-  UseDefaultUbuntuAMI: !Equals [!Ref AMI, USE_DEFAULT]
-
 ################################
 # Create AWS resources
 ################################
@@ -400,8 +391,7 @@ Resources:
     Properties:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
-      ImageId:
-        Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
       InstanceType: t2.micro
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
@@ -421,8 +411,7 @@ Resources:
       Properties:
         DisableApiTermination: 'false'
         InstanceInitiatedShutdownBehavior: stop
-        ImageId:
-          Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
+        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
         InstanceType: t2.micro
         KeyName: !Ref EC2KeyPair
         Monitoring: 'false'
@@ -467,8 +456,7 @@ Resources:
     Properties:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
-      ImageId:
-        Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
       InstanceType: !Ref WSO2ISInstanceType
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
@@ -507,8 +495,7 @@ Resources:
     Properties:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
-      ImageId:
-        Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
       InstanceType: !Ref WSO2ISInstanceType
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
