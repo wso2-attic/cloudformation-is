@@ -22,39 +22,39 @@ Description: >
   WSO2 Identity Server single node deployment with puppet master agent setup
 
 ##############################################################################################
-# Mappings for centOS AMIs
+# Mappings for Ubuntu AMIs
 # Refer https://cloud-images.ubuntu.com/locator/ec2/ for ubuntu AMI-ID's for the LTS version
 ##############################################################################################
 Mappings:
   RegionMap:
     ap-northeast-1:
-      AMI: ami-25bd2743
+      AMI: ami-2f2d9c49
     ap-northeast-2:
-      AMI: ami-7248e81c
+      AMI: ami-e49e398a
     ap-south-1:
-      AMI: ami-5d99ce32
+      AMI: ami-46eea129
     ap-southeast-1:
-      AMI: ami-d2fa88ae
+      AMI: ami-84a6f3e7
     ap-southeast-2:
-      AMI: ami-b6bb47d4
+      AMI: ami-4cc8232e
     ca-central-1:
-      AMI: ami-dcad28b8
+      AMI: ami-338b3057
     eu-central-1:
-      AMI: ami-337be65c
+      AMI: ami-e22aaa8d
     eu-west-1:
-      AMI: ami-6e28b517
+      AMI: ami-2e832957
     eu-west-2:
-      AMI: ami-ee6a718a
+      AMI: ami-3fc8d75b
     sa-east-1:
-      AMI: ami-f9adef95
+      AMI: ami-981550f4
     us-east-1:
-      AMI: ami-4bf3d731
+      AMI: ami-c29e1cb8
     us-east-2:
-      AMI: ami-e1496384
+      AMI: ami-f0f8d695
     us-west-1:
-      AMI: ami-65e0e305
+      AMI: ami-8b90a9eb
     us-west-2:
-      AMI: ami-a042f4d8
+      AMI: ami-25cf1c5d
 
 #############################
 # User inputs
@@ -62,15 +62,15 @@ Mappings:
 Parameters:
   AMI:
     Type: String
-    Default: UBUNTU
-    Description: AMI for us-east-1 region
+    Default: READ_FROM_REGIONMAP
+    Description: AMI of the region. Keep READ_FROM_REGIONMAP to map Ubuntu AMI from the RegionMap in the script.
   JDK:
     Type: String
     Default: "ORACLE_JDK8"
     Description: Target Java version
     AllowedValues:
-      - ORACLE_JDK8
       - ORACLE_JDK7
+      - ORACLE_JDK8
   DBEngine:
     Type: String
     Default: "mysql"
@@ -147,8 +147,9 @@ Parameters:
       - m4.large
     ConstraintDescription: must be a valid EC2 instance type
 
+# Conditions
 Conditions:
-  UseDefaultUbuntuAMI: !Equals [!Ref AMI, UBUNTU]
+  UseDefaultUbuntuAMI: !Equals [!Ref AMI, READ_FROM_REGIONMAP]
 
 ################################
 # Create AWS resources
@@ -388,7 +389,7 @@ Resources:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
       ImageId:
-       Fn::If: [UseDefaultUbuntuAMI,!FindInMap [RegionMap, !Ref "AWS::Region", AMI],!Ref AMI]
+       Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
       InstanceType: t2.micro
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
@@ -409,7 +410,7 @@ Resources:
         DisableApiTermination: 'false'
         InstanceInitiatedShutdownBehavior: stop
         ImageId:
-           Fn::If: [UseDefaultUbuntuAMI,!FindInMap [RegionMap, !Ref "AWS::Region", AMI],!Ref AMI]
+          Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
         InstanceType: t2.micro
         KeyName: !Ref EC2KeyPair
         Monitoring: 'false'
@@ -455,7 +456,7 @@ Resources:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
       ImageId:
-       Fn::If: [UseDefaultUbuntuAMI,!FindInMap [RegionMap, !Ref "AWS::Region", AMI],!Ref AMI]
+        Fn::If: [UseDefaultUbuntuAMI, !FindInMap [RegionMap, !Ref "AWS::Region", AMI], !Ref AMI]
       InstanceType: !Ref WSO2ISInstanceType
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
@@ -497,7 +498,7 @@ Resources:
       DBInstanceClass: !Ref DBClass
       Engine: !Ref DBEngine
       EngineVersion: !Ref DBEngineVersion
-      DBInstanceIdentifier: wso2-is-dbinstance-centos2
+      DBInstanceIdentifier: wso2-is-dbinstance
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       AutoMinorVersionUpgrade: false
@@ -524,7 +525,7 @@ Resources:
   WSO2EnvISApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: identity-demo-centos
+      Name: identity-demo
       Scheme: internet-facing
       Subnets:
         - !Ref WSO2EnvPublicSubnet1
@@ -542,7 +543,7 @@ Resources:
       HealthCheckPort: 9443
       Matcher:
         HttpCode: 200
-      Name: is-3-carbon-9443
+      Name: is-carbon-9443
       Port: 443
       Protocol: HTTPS
       TargetGroupAttributes:
@@ -558,7 +559,7 @@ Resources:
         Ref: WSO2EnvVPC
       Tags:
       - Key: Name
-        Value: is-3-carbon-9443
+        Value: is-carbon-9443
   WSO2EnvISALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -573,13 +574,13 @@ Resources:
       SslPolicy: ELBSecurityPolicy-TLS-1-1-2017-01
 
 #####################################
-# Print details of the created stack 
+# Print details of the created stack
 #####################################
 Outputs:
-  DatabaseHost: 
+  DatabaseHost:
     Value: !Sub '${WSO2EnvDBInstance.Endpoint.Address}'
     Description: "Database Host"
-  DatabasePort: 
+  DatabasePort:
     Value: !Sub '${WSO2EnvDBInstance.Endpoint.Port}'
     Description: "Database Port"
   BastionEIP:
@@ -600,3 +601,4 @@ Outputs:
   WSO2ISMCURL:
     Value: !Sub 'https://${WSO2EnvISApplicationLoadBalancer.DNSName}/carbon'
     Description: Access URL of the Management Console
+
