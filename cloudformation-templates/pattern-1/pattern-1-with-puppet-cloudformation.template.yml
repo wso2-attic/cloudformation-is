@@ -416,7 +416,7 @@ Resources:
               git remote add -f origin https://github.com/wso2/cloudformation-is
               git config core.sparseCheckout true
               echo "scripts/puppetmaster/" >> .git/info/sparse-checkout
-              git pull --depth=1 origin master
+              git pull --depth=1 origin v5.4.0.2
               ./scripts/puppetmaster/install-puppet.sh
               ./scripts/puppetmaster/install-packages.sh
               ./scripts/puppetmaster/download-artifacts.sh
