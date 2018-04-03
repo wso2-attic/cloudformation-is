@@ -26,11 +26,8 @@ set -e
 echo ">> Creating puppet-artifacts directory"
 mkdir puppet-artifacts
 
-echo ">> Cloning wso2/puppet-common to puppet-artifacts"
-git clone --depth=1 https://github.com/wso2/puppet-common puppet-artifacts/puppet-common
-
-echo ">> Checking out the release tag 'v1.1.0' of cloned puppet-common"
-git --git-dir=puppet-artifacts/puppet-common/.git --work-tree=puppet-artifacts/puppet-common checkout v1.1.0
+echo ">> Cloning wso2/puppet-common to puppet-artifacts and checking out release tag 'v1.1.0'"
+git clone --branch v1.1.0 --depth 1 https://github.com/wso2/puppet-common puppet-artifacts/puppet-common
 
 echo ">> Creating puppet-artifacts/tmp directory to setup puppet artifacts"
 mkdir puppet-artifacts/tmp
