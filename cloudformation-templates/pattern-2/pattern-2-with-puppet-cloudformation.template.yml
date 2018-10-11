@@ -141,6 +141,27 @@ Parameters:
       - m3.xlarge
       - m3.2xlarge
       - m4.large
+      - c5.large
+    ConstraintDescription: must be a valid EC2 instance type
+  BastionInstanceType:
+    Description: EC2 instance type of the Bastion Node [t2.micro is the free tier]
+    Type: String
+    Default: m4.large
+    AllowedValues:
+      - t2.nano
+      - t1.micro
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - m3.medium
+      - m3.large
+      - m3.xlarge
+      - m3.2xlarge
+      - m4.large
+      - c5.large
     ConstraintDescription: must be a valid EC2 instance type
   AWSAccessKeyId:
     Type: String
@@ -150,6 +171,14 @@ Parameters:
     Type: String
     NoEcho: true
     Description: The AWS Access Key Secret used for internal AWS clustering
+  WSO2EnvISALBScheme:
+    Description: Scheme type for the Load Balancer. [Use "internal" for a private ALB]
+    Type: String
+    Default: internet-facing
+    AllowedValues:
+      - internet-facing
+      - internal
+    ConstraintDescription: must be a valid ALB scheme type
 ################################
 # Create AWS resources
 ################################
@@ -392,7 +421,7 @@ Resources:
       DisableApiTermination: 'false'
       InstanceInitiatedShutdownBehavior: stop
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
-      InstanceType: t2.micro
+      InstanceType: !Ref BastionInstanceType
       KeyName: !Ref EC2KeyPair
       Monitoring: 'false'
       Tags:
@@ -406,48 +435,49 @@ Resources:
           GroupSet:
             - !Ref WSO2EnvInstanceSecurityGroup
   WSO2EnvPuppetMasterInstance:
-      Type: 'AWS::EC2::Instance'
-      DependsOn: WSO2EnvDBInstance
-      Properties:
-        DisableApiTermination: 'false'
-        InstanceInitiatedShutdownBehavior: stop
-        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
-        InstanceType: t2.micro
-        KeyName: !Ref EC2KeyPair
-        Monitoring: 'false'
-        UserData:
-          Fn::Base64:
-            !Sub |
-              #!/bin/bash
-              set -e
-              apt-get -y install git
-              mkdir workspace
-              cd workspace
-              git init
-              git remote add -f origin https://github.com/wso2/cloudformation-is
-              git config core.sparseCheckout true
-              echo "scripts/puppetmaster/" >> .git/info/sparse-checkout
-              git pull --depth=1 origin v5.4.0.2
-              ./scripts/puppetmaster/install-puppet.sh
-              ./scripts/puppetmaster/install-packages.sh
-              ./scripts/puppetmaster/download-artifacts.sh
-              ./scripts/puppetmaster/extract-artifacts.sh
-              ./scripts/puppetmaster/init-rds.sh -rdshost ${WSO2EnvDBInstance.Endpoint.Address} -rdsport ${WSO2EnvDBInstance.Endpoint.Port} -rdsengine ${DBEngine} -rdsversion ${DBEngineVersion} -rdsusername ${DBUsername} -rdspassword ${DBPassword}
-              ./scripts/puppetmaster/setup-puppet.sh
-              ./scripts/puppetmaster/configure-hiera.sh -pattern pattern-2 -ishost ${WSO2EnvISApplicationLoadBalancer.DNSName} -rdshost ${WSO2EnvDBInstance.Endpoint.Address} -rdsport ${WSO2EnvDBInstance.Endpoint.Port} -rdsengine ${DBEngine} -rdsusername ${DBUsername} -rdspassword ${DBPassword} -awsid ${AWSAccessKeyId} -awssecret ${AWSAccessKeySecret} -securitygroup ${WSO2EnvInstanceSecurityGroup.GroupId} -region ${AWS::Region}
-              ./scripts/puppetmaster/copy-files.sh
-              apt-get --purge remove -y git
-              cat /dev/null > ~/.bash_history && history -c
-        Tags:
-          - Key: Name
-            Value: wso2-is-puppet-master
-        NetworkInterfaces:
-          - DeleteOnTermination: 'true'
-            Description: Primary network interface
-            DeviceIndex: 0
-            SubnetId: !Ref WSO2EnvPrivateSubnet1
-            GroupSet:
-              - !Ref WSO2EnvInstanceSecurityGroup
+    Type: 'AWS::EC2::Instance'
+    DependsOn: WSO2EnvDBInstance
+    Properties:
+      DisableApiTermination: 'false'
+      InstanceInitiatedShutdownBehavior: stop
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      KeyName: !Ref EC2KeyPair
+      Monitoring: 'false'
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            set -e
+            apt-get update
+            apt-get -y install git
+            mkdir workspace
+            cd workspace
+            git init
+            git remote add -f origin https://github.com/wso2/cloudformation-is
+            git config core.sparseCheckout true
+            echo "scripts/puppetmaster/" >> .git/info/sparse-checkout
+            git pull --depth=1 origin v5.4.0.2
+            ./scripts/puppetmaster/install-puppet.sh
+            ./scripts/puppetmaster/install-packages.sh
+            ./scripts/puppetmaster/download-artifacts.sh
+            ./scripts/puppetmaster/extract-artifacts.sh
+            ./scripts/puppetmaster/init-rds.sh -rdshost ${WSO2EnvDBInstance.Endpoint.Address} -rdsport ${WSO2EnvDBInstance.Endpoint.Port} -rdsengine ${DBEngine} -rdsversion ${DBEngineVersion} -rdsusername ${DBUsername} -rdspassword ${DBPassword}
+            ./scripts/puppetmaster/setup-puppet.sh
+            ./scripts/puppetmaster/configure-hiera.sh -pattern pattern-2 -ishost ${WSO2EnvISApplicationLoadBalancer.DNSName} -rdshost ${WSO2EnvDBInstance.Endpoint.Address} -rdsport ${WSO2EnvDBInstance.Endpoint.Port} -rdsengine ${DBEngine} -rdsusername ${DBUsername} -rdspassword ${DBPassword} -awsid ${AWSAccessKeyId} -awssecret ${AWSAccessKeySecret} -securitygroup ${WSO2EnvInstanceSecurityGroup.GroupId} -region ${AWS::Region}
+            ./scripts/puppetmaster/copy-files.sh
+            apt-get --purge remove -y git
+            cat /dev/null > ~/.bash_history && history -c
+      Tags:
+        - Key: Name
+          Value: wso2-is-puppet-master
+      NetworkInterfaces:
+        - DeleteOnTermination: 'true'
+          Description: Primary network interface
+          DeviceIndex: 0
+          SubnetId: !Ref WSO2EnvPrivateSubnet1
+          GroupSet:
+            - !Ref WSO2EnvInstanceSecurityGroup
   WSO2EnvISInstance1:
     Type: 'AWS::EC2::Instance'
     DependsOn:
@@ -465,6 +495,7 @@ Resources:
           !Sub |
             #!/bin/bash
             set -e
+            apt-get update
             apt-get -y install git
             mkdir workspace
             cd workspace
@@ -504,6 +535,7 @@ Resources:
           !Sub |
             #!/bin/bash
             set -e
+            apt-get update
             apt-get -y install git
             mkdir workspace
             cd workspace
@@ -565,7 +597,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: identity-demo
-      Scheme: internet-facing
+      Scheme: !Ref WSO2EnvISALBScheme
       Subnets:
         - !Ref WSO2EnvPublicSubnet1
         - !Ref WSO2EnvPublicSubnet2
@@ -648,4 +680,3 @@ Outputs:
   WSO2ISMCURL:
     Value: !Sub 'https://${WSO2EnvISApplicationLoadBalancer.DNSName}/carbon'
     Description: Access URL of the Management Console
-
